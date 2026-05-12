@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.novelwechat.app-mergeDebugResources-55:/values-v16/values-v16.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\hjj\\.gradle\\caches\\8.13\\transforms\\c939e663dc7f129a1b987b26dd8c5fab\\transformed\\core-1.12.0\\res\\values-v16\\values-v16.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "65",
+                        "endOffsets": "116"
+                    }
+                }
+            ]
+        }
+    ]
+}

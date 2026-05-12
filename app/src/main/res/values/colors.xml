@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 微信核心配色 -->
+    <color name="wechat_green">#07C160</color>
+    <color name="wechat_green_dark">#06AD56</color>
+    <color name="wechat_bubble_green">#95EC69</color>
+    <color name="wechat_bubble_white">#FFFFFF</color>
+    <color name="wechat_bg_light">#EDEDED</color>
+    <color name="wechat_bg_chat">#EDEDED</color>
+    <color name="wechat_tab_bg">#F7F7F7</color>
+    <color name="wechat_tab_selected">#07C160</color>
+    <color name="wechat_tab_unselected">#999999</color>
+    <color name="wechat_title_bar">#EDEDED</color>
+    <color name="wechat_divider">#D9D9D9</color>
+    <color name="wechat_text_primary">#111111</color>
+    <color name="wechat_text_secondary">#888888</color>
+    <color name="wechat_text_hint">#B2B2B2</color>
+    <color name="wechat_red_badge">#F44336</color>
+    <color name="wechat_chat_input_bg">#F7F7F7</color>
+
+    <!-- 夜间模式 -->
+    <color name="wechat_bg_dark">#1E1E1E</color>
+    <color name="wechat_title_bar_dark">#2C2C2C</color>
+    <color name="wechat_tab_bg_dark">#1E1E1E</color>
+    <color name="wechat_bubble_green_dark">#2B5E2B</color>
+    <color name="wechat_bubble_white_dark">#2C2C2C</color>
+    <color name="wechat_text_primary_dark">#D4D4D4</color>
+    <color name="wechat_divider_dark">#3A3A3A</color>
+    <color name="wechat_chat_input_bg_dark">#2C2C2C</color>
+</resources>

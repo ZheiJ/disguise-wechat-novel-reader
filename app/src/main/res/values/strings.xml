@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">微信</string>
+
+    <!-- 微信底部Tab文字 -->
+    <string name="tab_wechat">微信</string>
+    <string name="tab_contacts">通讯录</string>
+    <string name="tab_discover">发现</string>
+    <string name="tab_me">我</string>
+
+    <!-- 聊天界面 -->
+    <string name="chat_input_hint">输入章节号跳转…</string>
+    <string name="menu_chapters">章节目录</string>
+    <string name="menu_font">字体大小</string>
+    <string name="menu_theme">夜间模式</string>
+
+    <!-- 通讯录 -->
+    <string name="contacts_search_hint">搜索</string>
+
+    <!-- 发现页 -->
+    <string name="discover_settings">设置</string>
+    <string name="discover_about">关于微信</string>
+
+    <!-- 个人页 -->
+    <string name="profile_wechat_id">微信号</string>
+    <string name="profile_today_read">今日阅读</string>
+    <string name="profile_total_read">累计阅读</string>
+    <string name="profile_books_count">已读书籍</string>
+</resources>
