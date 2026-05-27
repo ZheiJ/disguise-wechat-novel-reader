@@ -24,11 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AddCircleOutline
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -134,18 +130,12 @@ fun WeChatTitleBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (showHomeActions) {
-                    Icon(
-                        imageVector = Icons.Outlined.Search,
-                        contentDescription = "搜索",
-                        tint = colors.textPrimary,
+                    WeChatSearchIcon(
                         modifier = Modifier
                             .size(26.dp)
-                            .clickable { onSearch?.invoke() },
+                        .clickable { onSearch?.invoke() },
                     )
-                    Icon(
-                        imageVector = Icons.Outlined.AddCircleOutline,
-                        contentDescription = "添加",
-                        tint = colors.textPrimary,
+                    WeChatTitleAddIcon(
                         modifier = Modifier
                             .size(27.dp)
                             .clickable { onAdd?.invoke() },
@@ -391,6 +381,57 @@ private fun WeChatBackIcon(modifier: Modifier = Modifier) {
             lineTo(size.width * 0.68f, size.height * 0.88f)
         }
         drawPath(path, color = color, style = stroke)
+    }
+}
+
+@Composable
+private fun WeChatSearchIcon(modifier: Modifier = Modifier) {
+    val color = WechatTheme.colors.textPrimary
+    Canvas(modifier = modifier) {
+        val strokeWidth = size.minDimension * 0.045f
+        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawCircle(
+            color = color,
+            radius = size.minDimension * 0.27f,
+            center = Offset(size.width * 0.43f, size.height * 0.41f),
+            style = stroke,
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.61f, size.height * 0.61f),
+            end = Offset(size.width * 0.82f, size.height * 0.82f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
+    }
+}
+
+@Composable
+private fun WeChatTitleAddIcon(modifier: Modifier = Modifier) {
+    val color = WechatTheme.colors.textPrimary
+    Canvas(modifier = modifier) {
+        val strokeWidth = size.minDimension * 0.045f
+        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawCircle(
+            color = color,
+            radius = size.minDimension * 0.40f,
+            center = Offset(size.width / 2f, size.height / 2f),
+            style = stroke,
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.32f, size.height * 0.50f),
+            end = Offset(size.width * 0.68f, size.height * 0.50f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.50f, size.height * 0.32f),
+            end = Offset(size.width * 0.50f, size.height * 0.68f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round,
+        )
     }
 }
 

@@ -1,6 +1,9 @@
 package com.novelwechat.ui.reading
 
+import android.content.Intent
+import android.content.ComponentName
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -215,6 +218,7 @@ private fun WeChatChatInputBar(
     onNextChapter: () -> Unit,
 ) {
     val colors = WechatTheme.colors
+    val context = LocalContext.current
 
     Column(modifier = Modifier.fillMaxWidth()) {
         HorizontalDivider(color = colors.divider, thickness = 0.5.dp)
@@ -229,9 +233,8 @@ private fun WeChatChatInputBar(
         ) {
             RoundInputIcon(
                 type = InputIconType.Voice,
-                enabled = !isFirstChapter && !isLoading,
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(31.dp)
                     .clickable(enabled = !isFirstChapter && !isLoading) { onPrevChapter() },
             )
 
@@ -250,13 +253,35 @@ private fun WeChatChatInputBar(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            RoundInputIcon(type = InputIconType.Smile, modifier = Modifier.size(36.dp))
+            RoundInputIcon(
+                type = InputIconType.Smile,
+                modifier = Modifier
+                    .size(31.dp)
+                    .clickable {
+                        try {
+                            val wechatIntent = Intent(Intent.ACTION_MAIN).apply {
+                                addCategory(Intent.CATEGORY_LAUNCHER)
+                                component = ComponentName("com.tencent.mm", "com.tencent.mm.ui.LauncherUI")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(wechatIntent)
+                        } catch (explicitError: Exception) {
+                            val launchIntent = context.packageManager.getLaunchIntentForPackage("com.tencent.mm")
+                            if (launchIntent != null) {
+                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(launchIntent)
+                            } else {
+                                Log.w(TAG, "Unable to launch WeChat", explicitError)
+                                Toast.makeText(context, "未安装微信", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+            )
             Spacer(modifier = Modifier.width(8.dp))
             RoundInputIcon(
                 type = InputIconType.Plus,
-                enabled = !isLastChapter && !isLoading,
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(31.dp)
                     .clickable(enabled = !isLastChapter && !isLoading) { onNextChapter() },
             )
         }
@@ -268,35 +293,56 @@ private enum class InputIconType { Voice, Smile, Plus }
 @Composable
 private fun RoundInputIcon(
     type: InputIconType,
-    enabled: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    val color = if (enabled) Color(0xFF111111) else Color(0xFFBDBDBD)
+    val color = Color(0xFF111111)
     Canvas(modifier = modifier) {
-        val stroke = Stroke(width = 2.6f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        drawCircle(color, radius = size.minDimension * 0.45f, center = Offset(size.width / 2f, size.height / 2f), style = stroke)
+        val strokeWidth = size.minDimension * 0.035f
+        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawCircle(
+            color,
+            radius = size.minDimension * 0.43f,
+            center = Offset(size.width / 2f, size.height / 2f),
+            style = stroke,
+        )
         when (type) {
             InputIconType.Voice -> {
                 drawPath(Path().apply {
-                    moveTo(size.width * 0.34f, size.height * 0.64f)
-                    quadraticBezierTo(size.width * 0.48f, size.height * 0.50f, size.width * 0.34f, size.height * 0.36f)
+                    moveTo(size.width * 0.28f, size.height * 0.42f)
+                    quadraticBezierTo(size.width * 0.35f, size.height * 0.50f, size.width * 0.28f, size.height * 0.58f)
                 }, color, style = stroke)
                 drawPath(Path().apply {
-                    moveTo(size.width * 0.51f, size.height * 0.72f)
-                    quadraticBezierTo(size.width * 0.76f, size.height * 0.50f, size.width * 0.51f, size.height * 0.28f)
+                    moveTo(size.width * 0.42f, size.height * 0.35f)
+                    quadraticBezierTo(size.width * 0.54f, size.height * 0.50f, size.width * 0.42f, size.height * 0.65f)
+                }, color, style = stroke)
+                drawPath(Path().apply {
+                    moveTo(size.width * 0.55f, size.height * 0.25f)
+                    quadraticBezierTo(size.width * 0.73f, size.height * 0.50f, size.width * 0.55f, size.height * 0.75f)
                 }, color, style = stroke)
             }
             InputIconType.Smile -> {
-                drawCircle(color, radius = size.width * 0.045f, center = Offset(size.width * 0.37f, size.height * 0.38f))
-                drawCircle(color, radius = size.width * 0.045f, center = Offset(size.width * 0.63f, size.height * 0.38f))
+                drawCircle(color, radius = size.width * 0.055f, center = Offset(size.width * 0.37f, size.height * 0.38f))
+                drawCircle(color, radius = size.width * 0.055f, center = Offset(size.width * 0.63f, size.height * 0.38f))
                 drawPath(Path().apply {
-                    moveTo(size.width * 0.30f, size.height * 0.60f)
-                    quadraticBezierTo(size.width * 0.50f, size.height * 0.76f, size.width * 0.70f, size.height * 0.60f)
+                    moveTo(size.width * 0.29f, size.height * 0.59f)
+                    quadraticBezierTo(size.width * 0.50f, size.height * 0.76f, size.width * 0.71f, size.height * 0.59f)
                 }, color, style = stroke)
             }
             InputIconType.Plus -> {
-                drawLine(color, Offset(size.width * 0.29f, size.height * 0.50f), Offset(size.width * 0.71f, size.height * 0.50f), strokeWidth = 2.6f, cap = StrokeCap.Round)
-                drawLine(color, Offset(size.width * 0.50f, size.height * 0.29f), Offset(size.width * 0.50f, size.height * 0.71f), strokeWidth = 2.6f, cap = StrokeCap.Round)
+                drawLine(
+                    color,
+                    Offset(size.width * 0.30f, size.height * 0.50f),
+                    Offset(size.width * 0.70f, size.height * 0.50f),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color,
+                    Offset(size.width * 0.50f, size.height * 0.30f),
+                    Offset(size.width * 0.50f, size.height * 0.70f),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round,
+                )
             }
         }
     }
