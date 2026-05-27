@@ -4,6 +4,11 @@ import androidx.room.*
 import com.novelwechat.data.local.entity.Chapter
 import kotlinx.coroutines.flow.Flow
 
+data class ChapterTitle(
+    val chapterIndex: Int,
+    val title: String,
+)
+
 @Dao
 interface ChapterDao {
     @Query("SELECT * FROM chapters WHERE bookId = :bookId ORDER BY chapterIndex ASC")
@@ -11,6 +16,9 @@ interface ChapterDao {
 
     @Query("SELECT * FROM chapters WHERE bookId = :bookId AND chapterIndex = :index LIMIT 1")
     suspend fun getChapter(bookId: Long, index: Int): Chapter?
+
+    @Query("SELECT chapterIndex, title FROM chapters WHERE bookId = :bookId ORDER BY chapterIndex ASC")
+    suspend fun getChapterTitles(bookId: Long): List<ChapterTitle>
 
     @Query("SELECT COUNT(*) FROM chapters WHERE bookId = :bookId")
     suspend fun getChapterCount(bookId: Long): Int

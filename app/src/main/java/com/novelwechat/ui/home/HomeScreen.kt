@@ -4,11 +4,32 @@ import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -17,10 +38,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novelwechat.App
+import com.novelwechat.R
 import com.novelwechat.data.local.entity.Book
 import com.novelwechat.data.repository.BookRepository
 import com.novelwechat.ui.components.WeChatChatListItem
-import com.novelwechat.ui.components.WeChatSearchBar
 import com.novelwechat.ui.components.WeChatTitleBar
 import com.novelwechat.ui.theme.WechatTheme
 import kotlinx.coroutines.launch
@@ -38,25 +59,18 @@ fun HomeScreen(
     val books by viewModel.books.collectAsState()
     val scope = rememberCoroutineScope()
 
-    // 长按菜单状态
     var selectedBook by remember { mutableStateOf<Book?>(null) }
     var showContextMenu by remember { mutableStateOf(false) }
-
-    // 对话框状态
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showEditNameDialog by remember { mutableStateOf(false) }
     var showEditCoverDialog by remember { mutableStateOf(false) }
-
-    // 用于封面选择时保存书籍ID（因为selectedBook会在对话框关闭后被清空）
     var bookIdForCover by remember { mutableLongStateOf(-1L) }
 
     val fileLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
-            scope.launch {
-                viewModel.importBook(it)
-            }
+            scope.launch { viewModel.importBook(it) }
         }
     }
 
@@ -64,38 +78,34 @@ fun HomeScreen(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let { coverUri ->
-            
-                scope.launch {
-                    try {
-                        val inputStream = context.contentResolver.openInputStream(coverUri)
-                        val fileName = "cover_${bookIdForCover}.jpg"
-                        val coversDir = java.io.File(context.filesDir, "covers")
-                        if (!coversDir.exists()) coversDir.mkdirs()
-                        val coverFile = java.io.File(coversDir, fileName)
-                        inputStream?.use { input ->
-                            java.io.FileOutputStream(coverFile).use { output ->
-                                input.copyTo(output)
-                            }
+            scope.launch {
+                try {
+                    val inputStream = context.contentResolver.openInputStream(coverUri)
+                    val fileName = "cover_${bookIdForCover}.jpg"
+                    val coversDir = java.io.File(context.filesDir, "covers")
+                    if (!coversDir.exists()) coversDir.mkdirs()
+                    val coverFile = java.io.File(coversDir, fileName)
+                    inputStream?.use { input ->
+                        java.io.FileOutputStream(coverFile).use { output ->
+                            input.copyTo(output)
                         }
-                        Log.d("AvatarUpdate", "Saving cover for book ID: $bookIdForCover to ${coverFile.absolutePath}")
-                        viewModel.updateBookCover(bookIdForCover, coverFile.absolutePath)
-                        bookIdForCover = -1 // 重置
-                    } catch (e: Exception) {
-                        Log.e("AvatarUpdate", "Error saving cover", e)
-                        e.printStackTrace()
                     }
+                    Log.d("AvatarUpdate", "Saving cover for book ID: $bookIdForCover to ${coverFile.absolutePath}")
+                    viewModel.updateBookCover(bookIdForCover, coverFile.absolutePath)
+                    bookIdForCover = -1
+                } catch (e: Exception) {
+                    Log.e("AvatarUpdate", "Error saving cover", e)
                 }
             }
         }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         WeChatTitleBar(
-            title = "微信",
-            onMore = {
-                fileLauncher.launch(arrayOf("text/plain", "application/epub+zip"))
-            },
+            title = "微信(${books.sumOf { it.unreadCount }.takeIf { it > 0 } ?: 256})",
+            showHomeActions = true,
+            onAdd = { fileLauncher.launch(arrayOf("text/*", "application/epub+zip", "application/octet-stream")) },
         )
-        WeChatSearchBar(placeholder = "搜索")
 
         if (books.isEmpty()) {
             Box(
@@ -105,7 +115,7 @@ fun HomeScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "点击右上角 ⋯ 导入小说",
+                    text = "点击右上角 + 导入小说",
                     color = WechatTheme.colors.textHint,
                     fontSize = 14.sp,
                 )
@@ -115,11 +125,12 @@ fun HomeScreen(
                 items(books, key = { it.id }) { book ->
                     WeChatChatListItem(
                         title = book.title,
-                        subtitle = "第${book.totalChapters}章 · ${book.author}",
+                        subtitle = buildBookSubtitle(book),
                         timeText = viewModel.formatTime(book.lastReadTime),
                         unreadCount = book.unreadCount,
                         isPinned = book.isPinned,
                         coverPath = book.coverPath,
+                        fallbackAvatar = R.drawable.avatar_novel,
                         onClick = { onBookClick(book.id) },
                         onLongPress = {
                             selectedBook = book
@@ -131,16 +142,13 @@ fun HomeScreen(
         }
     }
 
-    // 长按弹出菜单
     if (showContextMenu && selectedBook != null) {
         AlertDialog(
             onDismissRequest = {
                 showContextMenu = false
                 selectedBook = null
             },
-            title = {
-                Text(text = selectedBook?.title ?: "")
-            },
+            title = { Text(text = selectedBook?.title ?: "") },
             text = {
                 Column {
                     TextButton(
@@ -185,12 +193,9 @@ fun HomeScreen(
         )
     }
 
-    // 删除确认对话框
     if (showDeleteConfirmDialog && selectedBook != null) {
         AlertDialog(
-            onDismissRequest = {
-                showDeleteConfirmDialog = false
-            },
+            onDismissRequest = { showDeleteConfirmDialog = false },
             title = { Text("删除书籍") },
             text = { Text("确定要删除《${selectedBook?.title}》吗？删除后可在文件管理器重新导入。") },
             confirmButton = {
@@ -206,24 +211,19 @@ fun HomeScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    showDeleteConfirmDialog = false
-                }) {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
                     Text("取消")
                 }
             }
         )
     }
 
-    // 修改名称对话框
     if (showEditNameDialog && selectedBook != null) {
         var newTitle by remember { mutableStateOf(selectedBook?.title ?: "") }
 
         Dialog(onDismissRequest = { showEditNameDialog = false }) {
             Card {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text("修改名称", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedTextField(
@@ -258,7 +258,6 @@ fun HomeScreen(
         }
     }
 
-    // 修改头像提示对话框
     if (showEditCoverDialog && selectedBook != null) {
         val bookId = selectedBook?.id ?: -1L
         AlertDialog(
@@ -270,7 +269,7 @@ fun HomeScreen(
             text = { Text("选择一张图片作为书籍封面") },
             confirmButton = {
                 TextButton(onClick = {
-                    bookIdForCover = bookId // 保存书籍ID
+                    bookIdForCover = bookId
                     showEditCoverDialog = false
                     selectedBook = null
                     coverPickerLauncher.launch(arrayOf("image/*"))
@@ -288,4 +287,9 @@ fun HomeScreen(
             }
         )
     }
+}
+
+private fun buildBookSubtitle(book: Book): String {
+    val chapterPart = if (book.totalChapters > 0) "${book.totalChapters}章" else book.fileType.uppercase()
+    return if (book.author.isBlank()) chapterPart else "$chapterPart · ${book.author}"
 }

@@ -1,10 +1,11 @@
 package com.novelwechat.ui.navigation
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -12,13 +13,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.novelwechat.ui.components.TabItem
+import com.novelwechat.ui.components.WeChatBottomTabBar
 import com.novelwechat.ui.contacts.ContactsScreen
 import com.novelwechat.ui.discover.DiscoverScreen
 import com.novelwechat.ui.home.HomeScreen
 import com.novelwechat.ui.profile.ProfileScreen
 import com.novelwechat.ui.reading.ReadingScreen
-import com.novelwechat.ui.components.TabItem
-import com.novelwechat.ui.components.WeChatBottomTabBar
 
 @Composable
 fun MainNavHost(modifier: Modifier = Modifier) {
@@ -30,31 +31,13 @@ fun MainNavHost(modifier: Modifier = Modifier) {
     val showBottomBar = currentRoute != Screen.Reading.route
 
     val tabs = listOf(
-        TabItem(
-            label = "微信",
-            icon = Icons.Outlined.ChatBubbleOutline,
-            selectedIcon = Icons.Filled.ChatBubble,
-        ),
-        TabItem(
-            label = "通讯录",
-            icon = Icons.Outlined.Contacts,
-            selectedIcon = Icons.Filled.Contacts,
-        ),
-        TabItem(
-            label = "发现",
-            icon = Icons.Outlined.Explore,
-            selectedIcon = Icons.Filled.Explore,
-        ),
-        TabItem(
-            label = "我",
-            icon = Icons.Outlined.PersonOutline,
-            selectedIcon = Icons.Filled.Person,
-        ),
+        TabItem(label = "微信"),
+        TabItem(label = "通讯录"),
+        TabItem(label = "发现"),
+        TabItem(label = "我"),
     )
 
-    Column(
-        modifier = modifier
-    ) {
+    Column(modifier = modifier) {
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,

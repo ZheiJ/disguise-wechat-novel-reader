@@ -1,94 +1,137 @@
 package com.novelwechat.ui.components
 
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.novelwechat.R
 import com.novelwechat.ui.theme.WechatTheme
 
 @Composable
 fun ChatBubble(
     text: String,
     isFromMe: Boolean,
+    selfName: String,
+    otherName: String,
     modifier: Modifier = Modifier,
     fontSize: Int = 16,
+    selfAvatarPath: String? = null,
+    otherAvatarPath: String? = null,
+    @DrawableRes selfAvatar: Int = R.drawable.avatar_mom,
+    @DrawableRes otherAvatar: Int = R.drawable.avatar_novel,
 ) {
     val colors = WechatTheme.colors
+    val bubbleColor = if (isFromMe) colors.bubbleGreen else colors.bubbleWhite
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 2.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Top,
     ) {
         if (!isFromMe) {
-            // 左侧头像（对方=绿色=旁白）
-            WeChatAvatar(isFromMe = false, bgColor = Color(0xFF07C160))
-            Spacer(modifier = Modifier.width(6.dp))
+            WeChatAvatarImage(
+                coverPath = otherAvatarPath,
+                fallbackAvatar = otherAvatar,
+                contentDescription = otherName,
+                modifier = Modifier.size(40.dp),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
         }
 
-        val bubbleColor = if (isFromMe) colors.bubbleGreen else colors.bubbleWhite
-        val textColor = if (isFromMe) Color(0xFF111111) else colors.textPrimary
-        val bubbleShape = if (isFromMe) {
-            RoundedCornerShape(topStart = 4.dp, topEnd = 12.dp, bottomStart = 12.dp, bottomEnd = 12.dp)
-        } else {
-            RoundedCornerShape(topStart = 12.dp, topEnd = 4.dp, bottomStart = 12.dp, bottomEnd = 12.dp)
-        }
-
-        Box(
-            modifier = Modifier
-                .widthIn(max = 260.dp)
-                .clip(bubbleShape)
-                .background(bubbleColor)
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
+        Column(horizontalAlignment = if (isFromMe) Alignment.End else Alignment.Start) {
             Text(
-                text = text,
-                style = TextStyle(
-                    color = textColor,
-                    fontSize = fontSize.sp,
-                    lineHeight = (fontSize + 8).sp,
-                    fontWeight = FontWeight.Normal,
+                text = if (isFromMe) selfName else otherName,
+                color = colors.textSecondary,
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+                modifier = Modifier.padding(
+                    start = if (isFromMe) 0.dp else 2.dp,
+                    end = if (isFromMe) 2.dp else 0.dp,
+                    bottom = 2.dp,
                 ),
             )
+            Box {
+                Box(
+                    modifier = Modifier
+                        .widthIn(max = 258.dp)
+                        .background(bubbleColor, RoundedCornerShape(5.dp))
+                        .padding(horizontal = 11.dp, vertical = 7.dp),
+                ) {
+                    Text(
+                        text = text,
+                        style = TextStyle(
+                            color = colors.textPrimary,
+                            fontSize = fontSize.sp,
+                            lineHeight = (fontSize + 7).sp,
+                            fontWeight = FontWeight.Normal,
+                        ),
+                    )
+                }
+                BubbleTail(
+                    isFromMe = isFromMe,
+                    color = bubbleColor,
+                    modifier = Modifier
+                        .align(if (isFromMe) Alignment.TopEnd else Alignment.TopStart)
+                        .padding(top = 10.dp)
+                        .size(width = 8.dp, height = 12.dp),
+                )
+            }
         }
 
         if (isFromMe) {
-            Spacer(modifier = Modifier.width(6.dp))
-            // 右侧头像（自己=蓝色=对话）
-            WeChatAvatar(isFromMe = true, bgColor = Color(0xFF576B95))
+            Spacer(modifier = Modifier.width(8.dp))
+            WeChatAvatarImage(
+                coverPath = selfAvatarPath,
+                fallbackAvatar = selfAvatar,
+                contentDescription = selfName,
+                modifier = Modifier.size(40.dp),
+            )
         }
     }
 }
 
 @Composable
-fun WeChatAvatar(
+private fun BubbleTail(
     isFromMe: Boolean,
-    bgColor: Color,
+    color: Color,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(4.dp))
-            .background(bgColor),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = if (isFromMe) "我" else "书",
-            color = Color.White,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-        )
+    Canvas(modifier = modifier) {
+        val path = Path().apply {
+            if (isFromMe) {
+                moveTo(0f, 0f)
+                lineTo(size.width, size.height * 0.50f)
+                lineTo(0f, size.height)
+            } else {
+                moveTo(size.width, 0f)
+                lineTo(0f, size.height * 0.50f)
+                lineTo(size.width, size.height)
+            }
+            close()
+        }
+        drawPath(path, color)
     }
 }
 
@@ -100,13 +143,14 @@ fun ChatTimeLabel(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(top = 12.dp, bottom = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
             color = WechatTheme.colors.textHint,
-            fontSize = 12.sp,
+            fontSize = 13.sp,
+            lineHeight = 16.sp,
         )
     }
 }
@@ -116,10 +160,5 @@ fun ParagraphTimeLabel(
     paragraphIndex: Int,
     modifier: Modifier = Modifier,
 ) {
-    val fakeHour = (9 + paragraphIndex * 7 % 12)
-    val fakeMinute = paragraphIndex * 13 % 60
-    val period = if (fakeHour < 12) "上午" else "下午"
-    val displayHour = if (fakeHour > 12) fakeHour - 12 else fakeHour
-    val timeText = "$period $displayHour:${fakeMinute.toString().padStart(2, '0')}"
-    ChatTimeLabel(text = timeText, modifier = modifier)
+    ChatTimeLabel(text = if (paragraphIndex == 1) "昨天 17:54" else "下午 ${paragraphIndex + 1}:08", modifier = modifier)
 }

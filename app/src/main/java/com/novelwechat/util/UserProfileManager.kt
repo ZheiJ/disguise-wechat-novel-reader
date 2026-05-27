@@ -2,9 +2,6 @@ package com.novelwechat.util
 
 import android.content.Context
 
-/**
- * 用户个人资料管理：昵称、头像
- */
 object UserProfileManager {
 
     private const val PREFS_NAME = "user_profile"
@@ -15,7 +12,7 @@ object UserProfileManager {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun getNickname(context: Context): String {
-        return prefs(context).getString(KEY_NICKNAME, "书虫") ?: "书虫"
+        return prefs(context).getString(KEY_NICKNAME, "我") ?: "我"
     }
 
     fun setNickname(context: Context, nickname: String) {

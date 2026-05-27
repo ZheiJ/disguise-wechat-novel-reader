@@ -5,12 +5,35 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,11 +58,8 @@ fun ProfileScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // 当前显示的昵称和头像路径
     var nickname by remember { mutableStateOf(UserProfileManager.getNickname(context)) }
     var avatarPath by remember { mutableStateOf(UserProfileManager.getAvatarPath(context)) }
-
-    // 对话框状态
     var showEditNicknameDialog by remember { mutableStateOf(false) }
 
     val avatarPickerLauncher = rememberLauncherForActivityResult(
@@ -69,7 +89,6 @@ fun ProfileScreen() {
     Column(modifier = Modifier.fillMaxSize()) {
         WeChatTitleBar(title = "我")
 
-        // 头像 + 昵称 区域
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -77,8 +96,7 @@ fun ProfileScreen() {
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 头像：可点击，点击后选择图片
-            Box(
+            androidx.compose.foundation.layout.Box(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(RoundedCornerShape(6.dp))
@@ -95,7 +113,7 @@ fun ProfileScreen() {
                     )
                 } else {
                     Text(
-                        text = "读",
+                        text = "我",
                         color = Color.White,
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
@@ -103,10 +121,7 @@ fun ProfileScreen() {
                 }
             }
             Spacer(modifier = Modifier.width(16.dp))
-            // 昵称：可点击修改
-            Column(
-                modifier = Modifier.clickable { showEditNicknameDialog = true }
-            ) {
+            Column(modifier = Modifier.clickable { showEditNicknameDialog = true }) {
                 Text(
                     text = nickname,
                     color = colors.textPrimary,
@@ -115,7 +130,7 @@ fun ProfileScreen() {
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "微信号：novel_reader",
+                    text = "微信号: novel_reader",
                     color = colors.textSecondary,
                     fontSize = 14.sp,
                 )
@@ -124,43 +139,21 @@ fun ProfileScreen() {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        ProfileMenuItem(
-            icon = Icons.Outlined.Schedule,
-            title = "今日阅读",
-            subtitle = "0 分钟",
-        )
-        Divider(color = colors.divider, thickness = 0.5.dp, modifier = Modifier.padding(start = 56.dp))
-
-        ProfileMenuItem(
-            icon = Icons.Outlined.Timer,
-            title = "累计阅读",
-            subtitle = "0 小时",
-        )
+        ProfileMenuItem(icon = Icons.Outlined.Schedule, title = "今日阅读", subtitle = "0 分钟")
+        HorizontalDivider(color = colors.divider, thickness = 0.5.dp, modifier = Modifier.padding(start = 56.dp))
+        ProfileMenuItem(icon = Icons.Outlined.Timer, title = "累计阅读", subtitle = "0 小时")
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        ProfileMenuItem(
-            icon = Icons.Outlined.MenuBook,
-            title = "已读书籍",
-            subtitle = "0 本",
-        )
-        Divider(color = colors.divider, thickness = 0.5.dp, modifier = Modifier.padding(start = 56.dp))
-
-        ProfileMenuItem(
-            icon = Icons.Outlined.Bookmark,
-            title = "我的收藏",
-            subtitle = "0 个",
-        )
+        ProfileMenuItem(icon = Icons.Outlined.Bookmark, title = "已读书籍", subtitle = "0 本")
+        HorizontalDivider(color = colors.divider, thickness = 0.5.dp, modifier = Modifier.padding(start = 56.dp))
+        ProfileMenuItem(icon = Icons.Outlined.Bookmark, title = "我的收藏", subtitle = "0 个")
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        ProfileMenuItem(
-            icon = Icons.Outlined.Settings,
-            title = "设置",
-        )
+        ProfileMenuItem(icon = Icons.Outlined.Settings, title = "设置")
     }
 
-    // 修改昵称对话框
     if (showEditNicknameDialog) {
         var newNickname by remember { mutableStateOf(nickname) }
 
@@ -231,17 +224,9 @@ private fun ProfileMenuItem(
             modifier = Modifier.weight(1f),
         )
         if (subtitle != null) {
-            Text(
-                text = subtitle,
-                color = colors.textSecondary,
-                fontSize = 14.sp,
-            )
+            Text(text = subtitle, color = colors.textSecondary, fontSize = 14.sp)
         }
         Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = "›",
-            color = colors.textHint,
-            fontSize = 20.sp,
-        )
+        Text(text = "›", color = colors.textHint, fontSize = 20.sp)
     }
 }

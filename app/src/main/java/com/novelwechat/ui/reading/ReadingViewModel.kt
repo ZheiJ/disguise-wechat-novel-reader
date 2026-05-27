@@ -4,8 +4,6 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.novelwechat.data.local.entity.Book
-import com.novelwechat.data.local.entity.Chapter
 import com.novelwechat.data.local.entity.ReadProgress
 import com.novelwechat.data.repository.BookRepository
 import com.novelwechat.data.repository.ReadProgressRepository
@@ -20,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val TAG = "ReadingViewModel"
+private const val FORWARD_CACHE_COUNT = 20
 
 data class BubbleUiState(
     val bookTitle: String = "",
@@ -43,16 +42,14 @@ class ReadingViewModel(
 ) : ViewModel() {
 
     private var currentBookId: Long = -1
-
     private val _state = MutableStateFlow(BubbleUiState())
     val state: StateFlow<BubbleUiState> = _state.asStateFlow()
 
     private var loadChapterJob: Job? = null
-
-    // 章节内容缓存：key=章节索引, value=(标题, 句子列表)
-    // 最多保留20章
     private val chapterCache = LinkedHashMap<Int, Pair<String, List<SentenceSplitter.BubbleSentence>>>(
-        20, 0.75f, false
+        FORWARD_CACHE_COUNT + 1,
+        0.75f,
+        false,
     )
 
     fun loadBook(bookId: Long) {
@@ -64,10 +61,6 @@ class ReadingViewModel(
                 return@launch
             }
 
-            // 加载章节列表（只加载标题，不加载内容，很快）
-            loadChapterList(book.totalChapters)
-
-            // 恢复进度
             val progress = progressRepo.getProgress(bookId)
             val startChapter = progress?.chapterIndex ?: 0
             val startSentence = progress?.sentenceIndex ?: 0
@@ -79,45 +72,29 @@ class ReadingViewModel(
                 totalChapters = book.totalChapters,
                 savedSentenceIndex = startSentence,
             )
+
+            loadChapterTitles(book.totalChapters)
             loadChapter(startChapter)
         }
     }
 
-    /**
-     * 加载章节列表。只查章节标题（不查content列），即使章节很多也很快。
-     */
-    private suspend fun loadChapterList(totalChapters: Int) {
-        val items = mutableListOf<ChapterItem>()
-        for (i in 0 until minOf(totalChapters, 50)) {
-            val chapter = progressRepo.getChapter(currentBookId, i)
-            items.add(
-                ChapterItem(
-                    index = i,
-                    title = chapter?.title ?: "第${i + 1}章",
-                    isCurrent = false,
-                )
+    private suspend fun loadChapterTitles(totalChapters: Int) {
+        val titlesByIndex = withContext(Dispatchers.IO) {
+            progressRepo.getChapterTitles(currentBookId)
+        }.associateBy { it.chapterIndex }
+
+        val items = (0 until totalChapters).map { index ->
+            ChapterItem(
+                index = index,
+                title = titlesByIndex[index]?.title ?: "第${index + 1}章",
+                isCurrent = false,
             )
-        }
-        // 如果超过50章，剩余的用占位标题
-        if (totalChapters > 50) {
-            for (i in 50 until totalChapters) {
-                items.add(
-                    ChapterItem(
-                        index = i,
-                        title = "第${i + 1}章",
-                        isCurrent = false,
-                    )
-                )
-            }
         }
         _state.value = _state.value.copy(chapterList = items)
     }
 
     fun loadChapter(index: Int) {
-        Log.d(
-            TAG,
-            "loadChapter called: index=$index, currentChapterIndex=${_state.value.chapterIndex}, totalChapters=${_state.value.totalChapters}"
-        )
+        Log.d(TAG, "loadChapter: index=$index")
         loadChapterJob?.cancel()
         loadChapterJob = viewModelScope.launch(Dispatchers.Main) {
             _state.value = _state.value.copy(
@@ -126,31 +103,17 @@ class ReadingViewModel(
                 isLoading = true,
             )
 
-            // 先查缓存
             val cached = chapterCache[index]
             if (cached != null) {
                 val (title, sentences) = cached
-                _state.value = _state.value.copy(
-                    chapterTitle = title,
-                    chapterIndex = index,
-                    sentences = sentences,
-                    isLoading = false,
-                    isFirstChapter = index == 0,
-                    isLastChapter = index >= _state.value.totalChapters - 1,
-                    chapterList = _state.value.chapterList.map { it.copy(isCurrent = it.index == index) },
-                )
-                Log.d(TAG, "loadChapter from cache: index=$index, title=$title")
+                publishChapter(index, title, sentences)
                 bookRepo.updateLastReadTime(currentBookId)
-                // 预加载前后章节，保持20章缓存
-                prefetchAround(index)
+                prefetchForwardWindow(index)
                 return@launch
             }
 
-            val chapter = withContext(Dispatchers.IO) {
-                progressRepo.getChapter(currentBookId, index)
-            }
-            if (chapter == null) {
-                Log.w(TAG, "loadChapter: chapter not found, index=$index")
+            val loaded = loadAndCacheChapter(index)
+            if (loaded == null) {
                 _state.value = _state.value.copy(
                     isLoading = false,
                     isFirstChapter = index == 0,
@@ -159,70 +122,76 @@ class ReadingViewModel(
                 return@launch
             }
 
-            val sentences = withContext(Dispatchers.Default) {
-                SentenceSplitter.split(chapter.content)
-            }
-            chapterCache[index] = Pair(chapter.title, sentences)
-            _state.value = _state.value.copy(
-                chapterTitle = chapter.title,
-                chapterIndex = index,
-                sentences = sentences,
-                isLoading = false,
-                isFirstChapter = index == 0,
-                isLastChapter = index >= _state.value.totalChapters - 1,
-                chapterList = _state.value.chapterList.map { it.copy(isCurrent = it.index == index) },
-            )
-            Log.d(
-                TAG,
-                "loadChapter completed: index=$index, chapterTitle=${chapter.title}, sentencesCount=${sentences.size}"
-            )
+            val (title, sentences) = loaded
+            publishChapter(index, title, sentences)
             bookRepo.updateLastReadTime(currentBookId)
-            // 预加载前后章节
-            prefetchAround(index)
+            prefetchForwardWindow(index)
         }
     }
 
-    /**
-     * 预加载当前章节周围的章节，确保缓存中始终有20章。
-     * 优先加载后面的章节（因为用户通常向后翻）。
-     */
-    private fun prefetchAround(currentIndex: Int) {
+    private suspend fun loadAndCacheChapter(
+        index: Int,
+    ): Pair<String, List<SentenceSplitter.BubbleSentence>>? {
+        chapterCache[index]?.let { return it }
+
+        val chapter = withContext(Dispatchers.IO) {
+            progressRepo.getChapter(currentBookId, index)
+        } ?: return null
+
+        val sentences = withContext(Dispatchers.Default) {
+            SentenceSplitter.split(chapter.content)
+        }
+        val result = chapter.title to sentences
+        synchronized(chapterCache) {
+            chapterCache[index] = result
+        }
+        return result
+    }
+
+    private fun publishChapter(
+        index: Int,
+        title: String,
+        sentences: List<SentenceSplitter.BubbleSentence>,
+    ) {
+        _state.value = _state.value.copy(
+            chapterTitle = title,
+            chapterIndex = index,
+            sentences = sentences,
+            isLoading = false,
+            isFirstChapter = index == 0,
+            isLastChapter = index >= _state.value.totalChapters - 1,
+            chapterList = _state.value.chapterList.map { it.copy(isCurrent = it.index == index) },
+        )
+    }
+
+    private fun prefetchForwardWindow(currentIndex: Int) {
         val total = _state.value.totalChapters
-        // 前面留5章，后面留14章 = 20章（含当前章）
-        val rangeStart = maxOf(0, currentIndex - 5)
-        val rangeEnd = minOf(total - 1, currentIndex + 14)
+        if (total <= 0) return
+
+        val rangeStart = currentIndex
+        val rangeEnd = minOf(total - 1, currentIndex + FORWARD_CACHE_COUNT)
 
         for (i in rangeStart..rangeEnd) {
-            if (i == currentIndex) continue // 当前章节已加载
-            if (chapterCache.containsKey(i)) continue // 已在缓存中
+            if (i == currentIndex || chapterCache.containsKey(i)) continue
             prefetchChapter(i)
         }
 
-        // 清理超出范围的缓存
         val toRemove = chapterCache.keys.filter { it < rangeStart || it > rangeEnd }
         toRemove.forEach { chapterCache.remove(it) }
     }
 
-    /**
-     * 后台预加载单个章节，存入缓存
-     */
     private fun prefetchChapter(index: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             if (chapterCache.containsKey(index)) return@launch
             val chapter = progressRepo.getChapter(currentBookId, index) ?: return@launch
             val sentences = SentenceSplitter.split(chapter.content)
             synchronized(chapterCache) {
-                chapterCache[index] = Pair(chapter.title, sentences)
+                chapterCache[index] = chapter.title to sentences
             }
-            Log.d(TAG, "prefetched chapter: index=$index")
         }
     }
 
-    /**
-     * 保存阅读进度。参数使用调用时刻的快照值，避免竞态条件。
-     */
     fun saveProgress(sentenceIndex: Int, chapterIndex: Int) {
-        Log.d(TAG, "saveProgress called: chapterIndex=$chapterIndex, sentenceIndex=$sentenceIndex")
         viewModelScope.launch(Dispatchers.IO) {
             progressRepo.saveProgress(
                 ReadProgress(
@@ -238,28 +207,16 @@ class ReadingViewModel(
     fun nextChapter() {
         val s = _state.value
         val targetIndex = s.chapterIndex + 1
-        Log.d(
-            TAG,
-            "nextChapter called: current=${s.chapterIndex}, target=$targetIndex, isLast=${s.isLastChapter}, total=${s.totalChapters}"
-        )
         if (!s.isLastChapter && targetIndex < s.totalChapters) {
             loadChapter(targetIndex)
-        } else {
-            Log.w(TAG, "nextChapter BLOCKED: isLast=${s.isLastChapter}, total=${s.totalChapters}")
         }
     }
 
     fun prevChapter() {
         val s = _state.value
         val targetIndex = s.chapterIndex - 1
-        Log.d(
-            TAG,
-            "prevChapter called: current=${s.chapterIndex}, target=$targetIndex, isFirst=${s.isFirstChapter}, total=${s.totalChapters}"
-        )
         if (!s.isFirstChapter && targetIndex >= 0) {
             loadChapter(targetIndex)
-        } else {
-            Log.w(TAG, "prevChapter BLOCKED: isFirst=${s.isFirstChapter}, total=${s.totalChapters}")
         }
     }
 

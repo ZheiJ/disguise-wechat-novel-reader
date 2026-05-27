@@ -15,6 +15,9 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE id = :id")
     suspend fun getBookById(id: Long): Book?
 
+    @Query("SELECT COUNT(*) FROM books WHERE filePath = :filePath AND isDeleted = 0")
+    suspend fun countActiveByFilePath(filePath: String): Int
+
     @Query("SELECT * FROM books WHERE title LIKE '%' || :query || '%' AND isDeleted = 0")
     fun searchBooks(query: String): Flow<List<Book>>
 

@@ -14,6 +14,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        window.statusBarColor = android.graphics.Color.rgb(237, 237, 237)
+        window.navigationBarColor = android.graphics.Color.rgb(247, 247, 247)
         setContent {
             WechatTheme {
                 MainNavHost(

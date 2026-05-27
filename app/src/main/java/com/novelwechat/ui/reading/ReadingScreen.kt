@@ -1,29 +1,59 @@
 package com.novelwechat.ui.reading
 
 import android.util.Log
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novelwechat.App
+import com.novelwechat.R
 import com.novelwechat.data.repository.BookRepository
 import com.novelwechat.data.repository.ReadProgressRepository
-import com.novelwechat.ui.components.*
+import com.novelwechat.ui.components.ChatBubble
+import com.novelwechat.ui.components.ChatTimeLabel
+import com.novelwechat.ui.components.ChapterDrawer
+import com.novelwechat.ui.components.ParagraphTimeLabel
+import com.novelwechat.ui.components.WeChatTitleBar
 import com.novelwechat.ui.theme.WechatTheme
-import kotlinx.coroutines.launch
+import com.novelwechat.util.UserProfileManager
 
 private const val TAG = "ReadingScreen"
 
@@ -44,36 +74,29 @@ fun ReadingScreen(
     val state by viewModel.state.collectAsState()
     val colors = WechatTheme.colors
     val listState = rememberLazyListState()
+    val myName = remember { UserProfileManager.getNickname(context) }
+    val myAvatarPath = remember { UserProfileManager.getAvatarPath(context) }
+    var showChapterDrawer by remember { mutableStateOf(false) }
 
     LaunchedEffect(bookId) {
         viewModel.loadBook(bookId)
     }
 
-    // 记录上一次的章节索引，章节切换时恢复滚动位置
     var previousChapterIndex by remember { mutableIntStateOf(-1) }
 
     LaunchedEffect(state.chapterIndex, state.isLoading) {
-        if (!state.isLoading && state.sentences.isNotEmpty()) {
-            if (state.chapterIndex != previousChapterIndex) {
-                // 章节切换了
-                val targetIndex = if (previousChapterIndex == -1) {
-                    // 首次加载，恢复到上次保存的位置
-                    state.savedSentenceIndex.coerceIn(0, state.sentences.lastIndex)
-                } else {
-                    // 切换到其他章节（上/下翻），回到开头
-                    0
-                }
-                Log.d(TAG, "scrollTo: chapterIndex=${state.chapterIndex}, " +
-                        "previousChapterIndex=$previousChapterIndex, " +
-                        "targetIndex=$targetIndex, " +
-                        "savedSentenceIndex=${state.savedSentenceIndex}")
-                listState.scrollToItem(targetIndex)
-                previousChapterIndex = state.chapterIndex
+        if (!state.isLoading && state.sentences.isNotEmpty() && state.chapterIndex != previousChapterIndex) {
+            val targetIndex = if (previousChapterIndex == -1) {
+                state.savedSentenceIndex.coerceIn(0, state.sentences.lastIndex)
+            } else {
+                0
             }
+            Log.d(TAG, "scrollTo: chapterIndex=${state.chapterIndex}, targetIndex=$targetIndex")
+            listState.scrollToItem(targetIndex)
+            previousChapterIndex = state.chapterIndex
         }
     }
 
-    // 监听滚动位置变化来保存进度
     var lastSavedIndex by remember { mutableIntStateOf(-1) }
     var lastSavedChapter by remember { mutableIntStateOf(-1) }
 
@@ -84,7 +107,6 @@ fun ReadingScreen(
         if (currentIndex >= 0 && state.sentences.isNotEmpty()
             && (currentIndex != lastSavedIndex || currentChapter != lastSavedChapter)
         ) {
-            Log.d(TAG, "scroll: firstVisibleIndex=$currentIndex, chapterIndex=$currentChapter")
             viewModel.saveProgress(
                 sentenceIndex = currentIndex,
                 chapterIndex = currentChapter,
@@ -94,73 +116,98 @@ fun ReadingScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        WeChatTitleBar(
-            title = state.chapterTitle.ifEmpty { state.bookTitle },
-            onBack = { onBack() },
-            onMore = { },
-            avatarPath = state.coverPath,
-            subtitle = state.author,
-        )
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            WeChatTitleBar(
+                title = state.bookTitle.ifEmpty { "聊天" },
+                onBack = { onBack() },
+                onMore = { showChapterDrawer = true },
+            )
 
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .background(colors.chatBackground),
-        ) {
-            if (state.isLoading) {
-                Text(
-                    text = "加载中...",
-                    color = colors.textSecondary,
-                    modifier = Modifier.align(Alignment.Center),
-                )
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 8.dp),
-                ) {
-                    if (state.chapterTitle.isNotEmpty()) {
-                        item(key = "chapter_title") {
-                            ChatTimeLabel(text = state.chapterTitle)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .background(colors.chatBackground),
+            ) {
+                if (state.isLoading) {
+                    Text(
+                        text = "加载中...",
+                        color = colors.textSecondary,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp),
+                    ) {
+                        item(key = "chapter_time") {
+                            ChatTimeLabel(text = "昨天 17:54")
                         }
-                    }
 
-                    itemsIndexed(
-                        state.sentences,
-                        key = { index, _ -> "sentence_${state.chapterIndex}_$index" }
-                    ) { index, sentence ->
-                        if (index > 0 && index % 8 == 0) {
-                            ParagraphTimeLabel(paragraphIndex = index / 8)
+                        itemsIndexed(
+                            state.sentences,
+                            key = { index, _ -> "sentence_${state.chapterIndex}_$index" }
+                        ) { index, sentence ->
+                            if (index > 0 && index % 8 == 0) {
+                                ParagraphTimeLabel(paragraphIndex = index / 8)
+                            }
+                            ChatBubble(
+                                text = sentence.text,
+                                isFromMe = sentence.isDialogue,
+                                selfName = myName,
+                                otherName = state.bookTitle.ifEmpty { "书籍" },
+                                fontSize = 16,
+                                selfAvatarPath = myAvatarPath,
+                                otherAvatarPath = state.coverPath,
+                                selfAvatar = R.drawable.avatar_mom,
+                                otherAvatar = R.drawable.avatar_novel,
+                            )
                         }
-                        ChatBubble(
-                            text = sentence.text,
-                            isFromMe = sentence.isDialogue,
-                            fontSize = state.fontSize,
-                        )
-                    }
 
-                    item { Spacer(modifier = Modifier.height(80.dp)) }
+                        item { Spacer(modifier = Modifier.height(12.dp)) }
+                    }
                 }
             }
+
+            WeChatChatInputBar(
+                isFirstChapter = state.isFirstChapter,
+                isLastChapter = state.isLastChapter,
+                isLoading = state.isLoading,
+                onPrevChapter = { viewModel.prevChapter() },
+                onNextChapter = { viewModel.nextChapter() },
+            )
         }
 
-        WeChatChatInputBar(
-            chapterIndex = state.chapterIndex,
-            totalChapters = state.totalChapters,
-            isFirstChapter = state.isFirstChapter,
-            isLastChapter = state.isLastChapter,
-            isLoading = state.isLoading,
-            onPrevChapter = { viewModel.prevChapter() },
-            onNextChapter = { viewModel.nextChapter() },
-        )
+        if (showChapterDrawer) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.28f))
+                    .clickable { showChapterDrawer = false },
+            )
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                ChapterDrawer(
+                    chapters = state.chapterList,
+                    onChapterClick = { chapterIndex ->
+                        showChapterDrawer = false
+                        viewModel.jumpToChapter(chapterIndex)
+                    },
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(318.dp)
+                        .clickable(enabled = false) {},
+                )
+            }
+        }
     }
 }
 
 @Composable
 private fun WeChatChatInputBar(
-    chapterIndex: Int,
-    totalChapters: Int,
     isFirstChapter: Boolean,
     isLastChapter: Boolean,
     isLoading: Boolean,
@@ -170,20 +217,21 @@ private fun WeChatChatInputBar(
     val colors = WechatTheme.colors
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        Divider(color = colors.divider, thickness = 0.5.dp)
+        HorizontalDivider(color = colors.divider, thickness = 0.5.dp)
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(56.dp)
                 .background(colors.chatInputBg)
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-                .height(40.dp),
+                .padding(start = 10.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = "🎤",
-                fontSize = 20.sp,
+            RoundInputIcon(
+                type = InputIconType.Voice,
+                enabled = !isFirstChapter && !isLoading,
                 modifier = Modifier
+                    .size(36.dp)
                     .clickable(enabled = !isFirstChapter && !isLoading) { onPrevChapter() },
             )
 
@@ -192,27 +240,88 @@ private fun WeChatChatInputBar(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(32.dp)
-                    .background(colors.background, shape = RoundedCornerShape(4.dp))
-                    .padding(horizontal = 10.dp),
-                contentAlignment = Alignment.Center,
+                    .height(42.dp)
+                    .background(Color.White, shape = RoundedCornerShape(6.dp))
+                    .padding(horizontal = 12.dp),
+                contentAlignment = Alignment.CenterEnd,
             ) {
-                Text(
-                    text = "第${chapterIndex + 1}章",
-                    color = colors.textSecondary,
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center,
-                )
+                MicIcon(Modifier.size(22.dp), Color(0xFF666666))
             }
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            Text(
-                text = "➕",
-                fontSize = 20.sp,
+            RoundInputIcon(type = InputIconType.Smile, modifier = Modifier.size(36.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            RoundInputIcon(
+                type = InputIconType.Plus,
+                enabled = !isLastChapter && !isLoading,
                 modifier = Modifier
+                    .size(36.dp)
                     .clickable(enabled = !isLastChapter && !isLoading) { onNextChapter() },
             )
         }
+    }
+}
+
+private enum class InputIconType { Voice, Smile, Plus }
+
+@Composable
+private fun RoundInputIcon(
+    type: InputIconType,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
+    val color = if (enabled) Color(0xFF111111) else Color(0xFFBDBDBD)
+    Canvas(modifier = modifier) {
+        val stroke = Stroke(width = 2.6f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawCircle(color, radius = size.minDimension * 0.45f, center = Offset(size.width / 2f, size.height / 2f), style = stroke)
+        when (type) {
+            InputIconType.Voice -> {
+                drawPath(Path().apply {
+                    moveTo(size.width * 0.34f, size.height * 0.64f)
+                    quadraticBezierTo(size.width * 0.48f, size.height * 0.50f, size.width * 0.34f, size.height * 0.36f)
+                }, color, style = stroke)
+                drawPath(Path().apply {
+                    moveTo(size.width * 0.51f, size.height * 0.72f)
+                    quadraticBezierTo(size.width * 0.76f, size.height * 0.50f, size.width * 0.51f, size.height * 0.28f)
+                }, color, style = stroke)
+            }
+            InputIconType.Smile -> {
+                drawCircle(color, radius = size.width * 0.045f, center = Offset(size.width * 0.37f, size.height * 0.38f))
+                drawCircle(color, radius = size.width * 0.045f, center = Offset(size.width * 0.63f, size.height * 0.38f))
+                drawPath(Path().apply {
+                    moveTo(size.width * 0.30f, size.height * 0.60f)
+                    quadraticBezierTo(size.width * 0.50f, size.height * 0.76f, size.width * 0.70f, size.height * 0.60f)
+                }, color, style = stroke)
+            }
+            InputIconType.Plus -> {
+                drawLine(color, Offset(size.width * 0.29f, size.height * 0.50f), Offset(size.width * 0.71f, size.height * 0.50f), strokeWidth = 2.6f, cap = StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.50f, size.height * 0.29f), Offset(size.width * 0.50f, size.height * 0.71f), strokeWidth = 2.6f, cap = StrokeCap.Round)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MicIcon(
+    modifier: Modifier = Modifier,
+    color: Color,
+) {
+    Canvas(modifier = modifier) {
+        val stroke = Stroke(width = 2.4f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(size.width * 0.36f, size.height * 0.08f),
+            size = androidx.compose.ui.geometry.Size(size.width * 0.28f, size.height * 0.50f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.14f),
+            style = stroke,
+        )
+        drawPath(Path().apply {
+            moveTo(size.width * 0.22f, size.height * 0.42f)
+            quadraticBezierTo(size.width * 0.24f, size.height * 0.76f, size.width * 0.50f, size.height * 0.76f)
+            quadraticBezierTo(size.width * 0.76f, size.height * 0.76f, size.width * 0.78f, size.height * 0.42f)
+        }, color, style = stroke)
+        drawLine(color, Offset(size.width * 0.50f, size.height * 0.76f), Offset(size.width * 0.50f, size.height * 0.92f), strokeWidth = 2.4f, cap = StrokeCap.Round)
+        drawLine(color, Offset(size.width * 0.36f, size.height * 0.92f), Offset(size.width * 0.64f, size.height * 0.92f), strokeWidth = 2.4f, cap = StrokeCap.Round)
     }
 }

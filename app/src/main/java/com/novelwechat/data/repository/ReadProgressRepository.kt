@@ -1,6 +1,7 @@
 package com.novelwechat.data.repository
 
 import com.novelwechat.data.local.dao.ChapterDao
+import com.novelwechat.data.local.dao.ChapterTitle
 import com.novelwechat.data.local.dao.ReadProgressDao
 import com.novelwechat.data.local.entity.Chapter
 import com.novelwechat.data.local.entity.ReadProgress
@@ -16,6 +17,9 @@ class ReadProgressRepository(
 
     suspend fun getChapter(bookId: Long, chapterIndex: Int): Chapter? =
         chapterDao.getChapter(bookId, chapterIndex)
+
+    suspend fun getChapterTitles(bookId: Long): List<ChapterTitle> =
+        chapterDao.getChapterTitles(bookId)
 
     fun getChapters(bookId: Long): Flow<List<Chapter>> =
         chapterDao.getChaptersByBookId(bookId)
